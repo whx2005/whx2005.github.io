@@ -383,13 +383,15 @@ public class LLVMIRGenerator{
                 .append(" @").append(realName).append("(");
 
         Node funcFParams = funcDefNode.getSon("FuncFParams");
+        String params = "";
         if (funcFParams != null) {
-            processFunctionParams(funcFParams, sb.paramTypes);
+            params = processFunctionParams(funcFParams, sb.paramTypes);
         }
-
         irBuilder.append(") {\n");
         irBuilder.append("entry_").append(realName).append(":\n");
         Node block = funcDefNode.getSon("Block");
+        irBuilder.append(params);
+
         if (block != null) {
             generateBlock(block, false);
         }
@@ -417,11 +419,12 @@ public class LLVMIRGenerator{
         this.exit();
     }
 
-    private void processFunctionParams(Node funcFParams, List<String> paramTypes) {
+    private String processFunctionParams(Node funcFParams, List<String> paramTypes) {
         boolean first = true;
         // FuncFParams → FuncFParam { ',' FuncFParam }
         // FuncFParam → BType Ident ['[' ']']
         int i = 0;
+        StringBuilder sb = new StringBuilder();
         for (Node child : funcFParams.getSons()) {
             if (child.isType("FuncFParam")) {
                 String paramName = child.getDefName();
@@ -435,8 +438,17 @@ public class LLVMIRGenerator{
                 irBuilder.append(paramType).append(" ").append(realName);
                 hhh.put(new emm(paramName, curScope()),
                         new NewDef(realName, -1, (isArray) ? 1 : 0, true));
+                if (!isArray) {
+                    String realreal = newTemp();
+                    sb.append(table + realreal + " = alloca i32\n");
+                    sb.append("store i32 " + realName + ", i32* " + realreal + "\n");
+                    hhh.put(new emm(paramName, curScope()),
+                            new NewDef(realreal, -1, (isArray) ? 1 : 0, true));
+
+                }
             }
         }
+        return sb.toString();
     }
 
     private void generateBlock(Node block, boolean okk) {
@@ -517,6 +529,13 @@ public class LLVMIRGenerator{
                         irBuilder.append(table).append("store i32 ")
                                 .append(value).append(", i32* ").append(ptr).append("\n");
                         ++cc;
+                    }
+                    // 剩下的为0
+                    for (; cc < size; ++cc) {
+                        String ptr = newTemp();
+                        getElemPtr(ptr, size, realName, String.valueOf(cc));
+                        irBuilder.append(table).append("store i32 ")
+                                .append(0).append(", i32* ").append(ptr).append("\n");
                     }
                 }
             }
@@ -613,19 +632,19 @@ public class LLVMIRGenerator{
                 }
             } else {
                 String ptr = def.name;
-                if (def.type == 0) {
-                    String realPtr = newTemp();
-                    addPointer(realPtr);
-                    irBuilder.append(table + "store i32 ").append(value)
-                            .append(", i32* ").append(realPtr).append("\n");
-                    hhh.remove(new emm(varName, curScope()));
-                    hhh.put(new emm(varName, curScope()),
-                            new NewDef(realPtr, -1, 1));
-                }
-                else {
+//                if (def.type == 0) {
+//                    String realPtr = newTemp();
+//                    addPointer(realPtr);
+//                    irBuilder.append(table + "store i32 ").append(value)
+//                            .append(", i32* ").append(realPtr).append("\n");
+//                    hhh.remove(new emm(varName, curScope()));
+//                    hhh.put(new emm(varName, curScope()),
+//                            new NewDef(realPtr, -1, 1));
+//                }
+//                else {
                     irBuilder.append(table + "store i32 ").append(value)
                             .append(", i32* ").append(ptr).append("\n");
-                }
+//                }
             }
         }
     }
@@ -758,16 +777,9 @@ public class LLVMIRGenerator{
                 getElemPtr(result, uu.size, ptr, "0");
                 return result;
             }
-            else if (type == 0) {
-                return ptr;
-                /*
-//                String tmp = newTemp();
-//                addPointer(tmp);
-//                storeValue(ptr, tmp);
-//                irBuilder.append(table + result).append(" = load i32, i32* ").append(tmp).append("\n");
-//                return result;
-                */
-            }
+//            else if (type == 0) {
+//                return ptr;
+//            }
             else {
                 irBuilder.append(table).append(result).
                         append(" = load i32, i32* ").append(ptr).append("\n");
